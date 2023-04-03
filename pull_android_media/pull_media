@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+
+import os
+import subprocess
+import mimetypes
+import sys
+import shutil
+
+def fileType(path):
+    ftype=mimetypes.guess_type(path)[0]
+    if ftype is None:
+        return None
+    return ftype.split('/')[0]
+
+def extentsionIsMediaType(fname):
+    if len(fname)==0:
+        return False
+    fsep=fname.split('.')
+    if len(fsep)<2:
+        return False
+    ext=fsep[-1].lower()
+    mediaExtentionList=['jpg','gif','png','bmp','svg','jpeg','ico','xcf','vtf','psd','pbm','ppm','xpm','xbm','gz','heic','b16','pat','sgi','pgm','tiff','ras','exr','fbs','wbmp','ktx','cdr','fits','rgb','pcx','xwd','wmf','cgm','jng','jp2','fpx','pnm','tap','orf','nef','cr2','cpt','tif','heif','mp4','mpg','bk2','bik','wmv','avi','mkv','dl','mov','webm','m2v','mng','flv','gl','ogv','m4v','amr','aac','wav','awb','mp3','ogg','flac','csd','wma','dts','smp','aif','sco','mxmf','mid','au','aiff','aifc','opus','adts','ac3','m4a','3gp','m3u','pls','mp2','ass']
+    return  ext in mediaExtentionList
+
+def findFiles(deviceID):
+    findres=subprocess.run(['adb','-s',deviceID,'shell','find /sdcard/ -type f'],capture_output=True, text=True)
+    fileList=findres.stdout.split('\n')
+    return fileList
+
+def adbcheckfileSize(deviceID,path):
+    res=subprocess.run(['adb','-s',deviceID,'shell','ls -l \"%s\"' %(path)],capture_output=True, text=True)
+    if res.returncode!=0:
+        return -1
+    return int(res.stdout.split(' ')[4])
+
+if __name__ =="__main__":
+    checkDevicesReturn=subprocess.run(['adb','devices'],capture_output=True, text=True)
+    if checkDevicesReturn.returncode!=0:
+        eprint("adb command error")
+        sys.exit(1)
+    
+    deviceIDList=[]
+    deviceStr=checkDevicesReturn.stdout.split("\n")
+    
+    for l in deviceStr[1:]:
+        if len(l)==0:
+            continue
+        deviceIDList.append(l.split('\t')[0])
+
+    for deviceID in deviceIDList:
+        flist=findFiles(deviceID)
+        print("pulling from device:%s" %(deviceID))
+        existDirList=[]
+        for f in flist:
+            f=f.strip()
+            if not extentsionIsMediaType(f):
+                continue
+            if f.find("/sdcard/")!=0:
+                continue
+            sdcardPath=f[len("/sdcard/"):]
+            pulldirName=os.path.dirname(sdcardPath)
+            fileName=os.path.basename(f)
+            if pulldirName not in existDirList:
+                if not os.path.exists(pulldirName):
+                    os.makedirs(pulldirName)
+                existDirList.append(pulldirName)
+
+            if os.path.exists(sdcardPath):
+                phoneFileSize=adbcheckfileSize(deviceID,f)
+                thisFileSize=os.path.getsize(sdcardPath)
+                #print("pth:%s phone size:%d this size%d" %(f,phoneFileSize,thisFileSize))
+                if phoneFileSize==thisFileSize or phoneFileSize==0:
+                    continue
+                else:
+                    os.remove(sdcardPath)
+            
+            pullres=subprocess.run(['adb','-s',deviceID,'pull',f,sdcardPath])
+            if pullres.returncode!=0:
+                continue
+            if fileType(sdcardPath) not in ['video','image','audio']:
+                os.remove(sdcardPath)
+                pass
