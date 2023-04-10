@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import mimetypes
+import moviepy.editor as mp
+import multiprocessing
+import argparse
+
+
+def fileType(path):
+    ftype = mimetypes.guess_type(path)[0]
+    if ftype is None:
+        return None
+    return ftype.split('/')[0]
+
+
+def has_no_audio(filename):
+    clip = mp.VideoFileClip(filename)
+    return clip.audio is None
+
+
+def video2gif(src, dst, q=28):
+    clip = mp.VideoFileClip(src)
+    clip.write_gif(dst, fps=clip.fps, program='ffmpeg', opt='-crf %d' % (q), verbose=False, logger=None)
+
+
+# Press the green button in the gutter to run the script.
+
+
+def audio_check_worker(check_queue, outQueue, print_queue):
+    pid = multiprocessing.current_process().pid
+    while True:
+        path = check_queue.get(block=True)
+        if path is None:
+            outQueue.put(None)
+            break
+        try:
+            no_audio = has_no_audio(path)
+        except OSError as e:
+            continue
+        if not no_audio:
+            continue
+        else:
+            print_queue.put("[%d][find] \"%s\"" % (pid, path))
+            outQueue.put(path)
+    return
+
+
+def video2gif_worker(file_Queue, print_queue, q, outputBase):
+    pid = multiprocessing.current_process().pid
+    while True:
+        path = file_Queue.get(block=True)
+        if path is None:
+            break
+        if outputBase != '':
+            dst_path = outputBase
+        else:
+            dst_path = os.path.dirname(path)
+        baseName = os.path.basename(path)
+        dot_pos = baseName.rfind('.')
+        if dot_pos != -1:
+            name = baseName[:dot_pos]
+        else:
+            name = baseName
+        gif_path = dst_path + os.sep + name + ".gif"
+        print_queue.put("[%d][start] \"%s\"" % (pid, path))
+        video2gif(path, gif_path, q)
+        print_queue.put("[%d][converted] \"%s\" -> \"%s\"" % (pid, path, gif_path))
+    return
+
+
+def print_worker(print_queue):
+    while True:
+        s = print_queue.get(block=True)
+        if s is None:
+            break
+        print(s)
+    return
+
+
+if __name__ == '__main__':
+    arg_parser = argparse.ArgumentParser(description="transform video(no sound) to gif.(mainly for 9gag")
+    arg_parser.add_argument('-n', type=int, default=-1, help='thread count. invalid number will be auto detect.')
+    arg_parser.add_argument('-f', action='store_true', help='force transform --even if have sound.')
+    arg_parser.add_argument('-o', type=str, default='',
+                            help='output path. no set will be the same place video is founded.')
+    arg_parser.add_argument('-q', type=int, default=21,
+                            help='gif file quility int [0-51] 0 for lossless and 51 for potato')
+    arg_parser.add_argument('path', type=str, help='the path to find (9gag) video file.')
+
+    args = arg_parser.parse_args()
+
+    search_path = args.path
+    if search_path == '' or not os.path.isdir(search_path):
+        print("video path is not dir")
+        sys.exit(1)
+
+    if args.o != '' and not os.path.isdir(args.o):
+        print("output path not dir")
+        sys.exit(1)
+
+    if args.q < 0 or args.q > 51:
+        print("quility factor not in range")
+        sys.exit(2)
+
+    video_file_list = []
+    for root, dirs, files in os.walk(search_path, topdown=True):
+        for f in files:
+            fullpath = root + os.sep + f
+            ftype = fileType(fullpath)
+            if ftype is None or ftype != 'video':
+                continue
+            video_file_list.append(fullpath)
+
+    dst_path = "gif_dst"
+    if not os.path.exists(dst_path):
+        os.mkdir(dst_path)
+
+    no_audio_video_file_list = []
+
+    threads = os.cpu_count()
+    if args.n > 0:
+        threads = args.n
+
+    check_worker_list = []
+    video2gif_worker_list = []
+
+    check_queue = multiprocessing.Queue()
+    video2gif_queue = multiprocessing.Queue()
+
+    print_queue = multiprocessing.Queue()
+    print_work_handle = multiprocessing.Process(target=print_worker, args=(print_queue,))
+    print_work_handle.start()
+    for i in range(0, threads):
+        process = multiprocessing.Process(target=audio_check_worker, args=(check_queue, video2gif_queue, print_queue,))
+        process.start()
+        check_worker_list.append(process)
+
+        process = multiprocessing.Process(target=video2gif_worker, args=(video2gif_queue, print_queue, args.q, args.o,))
+        process.start()
+        video2gif_worker_list.append(process)
+
+    for vf in video_file_list:
+        if not args.f:
+            check_queue.put(vf)
+        else:
+            video2gif_queue.put(vf)
+    del video_file_list
+
+    for i in range(0, len(check_worker_list)):
+        check_queue.put(None)
+
+    for worker_list in [check_worker_list, video2gif_worker_list]:
+        for worker in worker_list:
+            worker.join()
+
+    print_queue.put(None)
+    print_work_handle.join()
+
+# See PyCharm help at https://www.jetbrains.com/help/pycharm/
