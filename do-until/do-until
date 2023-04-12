@@ -1,0 +1,125 @@
+#!/bin/bash -i
+
+function is_int_number()
+{
+	value=$1;
+	if [[ $value =~ ^[0-9]+$ ]];
+	then
+		return 1;
+	fi
+	return 0;
+}
+
+function is_decimal() {
+    re='^[+-]?[0-9]+([.][0-9]+)?$'
+    if [[ $1 =~ $re ]]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+args=("$@")
+i=0
+while [ ${i}  -lt  ${#@} ]
+do 
+arg=${args[i]};
+if [[ ${arg} == "-"* ]];
+then
+:
+# this arg is command starter
+let i=${i}+1;
+else
+:
+# this arg is NOT command starter
+break;
+fi
+let i=${i}+1;
+done;
+start_index=${i};
+unset i;
+
+script_commands=()
+run_commands=()
+i=0
+while [ ${i}  -lt  ${#args[@]} ]
+do 
+arg=${args[i]};
+if [ ${i} -lt ${start_index} ]
+then
+#script args
+script_commands+=(${arg})
+else
+#run commands
+run_commands+=(${arg})
+fi
+let i=${i}+1;
+done;
+
+fail_pause_time=1
+success_return_code=0
+
+i=0;
+while [ ${i} -lt ${#script_commands[@]} ]
+do
+arg=${script_commands[i]}
+let next_index=${i}+1;
+    case $arg in
+        -n)
+        fail_pause_time="${script_commands[next_index]}";
+		let i=${i}+2;
+        ;;
+        -r)
+        success_return_code="${script_commands[next_index]}";
+		let i=${i}+2;
+        ;;
+        *)
+        echo "Unknown argument: ${arg}"
+        exit 1
+        ;;
+    esac
+
+
+done
+
+fail_arg_quit=0;
+if is_int_number $success_return_code;
+then 
+echo "success_return_code value is $success_return_code, not an integer.";
+fail_arg_quit=1;
+fi
+
+if is_decimal $fail_pause_time;
+then 
+echo "fail_pause_time is $fail_pause_time, not a valid number."
+fail_arg_quit=1;
+fi
+if [ $fail_arg_quit -eq 1 ];
+then 
+exit 1;
+fi
+unset fail_arg_quit;
+echo "fail_pause_time:$fail_pause_time";
+echo "success_return_code:$success_return_code";
+
+shopt -s expand_aliases;
+executeCmd="${run_commands[@]}";
+pass=-1;
+firstRun=1;
+echo cmd:$executeCmd
+
+cnt=0
+while [ ${pass} -ne ${success_return_code} ];
+do
+	let cnt=${cnt}+1
+	eval "${executeCmd}";
+	pass=$?;
+	echo "return value:${pass} expected value:${success_return_code} try count:${cnt}";
+	if [ ${pass} -ne ${success_return_code} ];
+	then
+		sleep ${fail_pause_time};
+	fi;
+done;
+
+echo "total try count:$cnt"
+exit 0;
