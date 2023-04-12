@@ -1,0 +1,53 @@
+#!/usr/bin/bash
+
+#!/usr/bin/bash
+
+
+function loop_until_yeah_nah()
+{
+    while [ -v ${YEAH_NAH} ];
+    do
+    read -p "$1" YEAH_NAH;
+
+    if [ -z ${YEAH_NAH} ];
+    then 
+    if [ -n "$2" ];
+    then 
+    YEAH_NAH="$2";
+    else
+    YEAH_NAH="y";
+    fi
+    fi
+    YEAH_NAH=$(echo ${YEAH_NAH} | tr '[:upper:]' '[:lower:]');
+
+    if ! [[  "${YEAH_NAH}" == [yn] ]] ;
+    then
+    echo "[Y]es or [n]o";
+    unset YEAH_NAH;
+    fi
+    done
+    if [[  "${YEAH_NAH}" == 'y' ]];
+    then
+    echo 0; # as bash version of true
+    else
+    echo 1; # as bash version of false
+    fi
+}
+
+
+YEAH=$(loop_until_yeah_nah "yeah or nah?(Y/n)" Y);
+if [[ ${YEAH} = 0 ]];
+then
+echo "yeah";
+else
+echo "nah";
+fi
+
+YEAH=$(loop_until_yeah_nah "yeah or nah?(n/N)" N);
+if [[ ${YEAH} = 0 ]];
+then
+echo "yeah";
+else
+echo "nah";
+fi
+
