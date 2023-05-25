@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+import re
+import os
+import gzip
+
+def get_authlog_path():
+    auth_log_file_path=[]
+    base_path="/var/log"
+    for f in os.listdir(base_path):
+        if f.find("auth.log")!=-1:
+            auth_log_file_path.append(base_path+os.sep+f)
+    return auth_log_file_path
+
+def load_auth_records_from_file(file_list):
+    auth_log_re=re.compile("([A-Z][a-z]{2} \d{2} \d{2}:\d{2}:\d{2}) (.+?) (.+?)(\[([0-9]+)\])?\: (.+)\n")
+    auth_log_database=[]
+    for path in file_list:
+        if path[-2:]=='gz':
+            log=gzip.open(path,'r')
+        else:
+            log=open(path,'r')
+            
+        print("start reading file %s" %(path))
+        log_file_str=str(log.read())
+        print("file readed.")
+        log.close()
+        for line in log_file_str.split('\n'):
+            row={}
+            try:
+                finds=auth_log_re.findall(line+'\n')[0]
+            except IndexError:
+                continue
+            row['date'],row['hostname'],row['name'],_,row['pid'],row['info']=finds
+            auth_log_database.append(row)
+        
+    return auth_log_database
+    
+
+
+if __name__ == "__main__":
+    log_files=get_authlog_path()
+    print("find log files:%s" %(log_files.__str__()))
+    print("start read auth logs.")
+    auth_records=load_auth_records_from_file(log_files)
+    #fake login user count
+    fakuser_re=re.compile("invalid user (.+?) (from )?(.+?) port (\d+?) ")
+    fakeuser_list=set()
+    for row in auth_records:
+        if 'sshd'!=row['name']:
+            continue
+        info=row['info']
+        find_result=fakuser_re.findall(info)
+        if len(find_result)!=1:
+            continue
+        user,_,ip,port=find_result[0]
+        fakeuser_list.add(user)
+    #print(fakeuser_list)
+
+    print("total fake user count:%d" %(len(fakeuser_list)))
+
+    your_username=input("your linux user name:")
+    if your_username in fakeuser_list and your_username!='root':
+        print("u r in")
+    elif your_username=='root':
+        print("root is never safe.")
+    else:
+        print("safe-ish.")
