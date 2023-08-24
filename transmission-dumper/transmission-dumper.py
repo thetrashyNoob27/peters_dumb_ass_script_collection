@@ -9,7 +9,6 @@ import datetime
 import argparse
 import os
 
-
 def listTorrents(server="192.168.16.6:9091"):
     command = shlex.split("transmission-remote %s -l" % (server))
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
@@ -166,7 +165,12 @@ if __name__ == '__main__':
     arg=makeArgProcesser()
     querryHost = arg.server
     records = dumpTorrentInfo(querryHost)
-    db = torrentDb()
+
+    #db path
+    dbPath=os.path.expanduser('~/.local/var/lib')
+    os.makedirs(dbPath,exist_ok=True)
+
+    db = torrentDb(dbPath+os.sep+"transmission-torrents.sqlite3")
     db.insertLog(querryHost)
     for l in records:
         db.insertRecord(l['Name'], l['date'], l['Have'], l['magnet'])
