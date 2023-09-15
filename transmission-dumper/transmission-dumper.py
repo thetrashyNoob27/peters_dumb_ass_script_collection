@@ -61,6 +61,8 @@ def dumpTorrentInfo(server="192.168.16.6:9091"):
         t['magnet'] = magnetRe.findall(result.stdout)[0]
         addDateRe = re.compile("Date added:\s+(.+)\n")
         t['date'] = addDateRe.findall(result.stdout)[0]
+        parsedDatetime = datetime.datetime.strptime(t['date'], "%a %b %d %H:%M:%S %Y")
+        t['date'] = parsedDatetime.strftime("%Y-%m-%d %H:%M:%S")
 
     return records
 
@@ -86,6 +88,7 @@ class torrentDb:
             self.dbName=scriptPath+os.sep+"torrent.sqlite3"
         self.db = sqlite3.connect(self.dbName)
         self._databaseSetup()
+        self._updateMagnetDate()
         return
 
     def __def__(self):
@@ -130,9 +133,9 @@ class torrentDb:
         cur = self.getCurscur()
         data = (name, date, size, link)
         try:
-            cur.execute("""INSERT INTO magnet ('name','date','size','link') VALUES (?,?,?,?)""", data)
+            cur.execute("""INSERT INTO magnet ("name","date","size","link") VALUES (?,?,?,?)""", data)
         except sqlite3.IntegrityError as e:
-            pass
+            cur.execute("""UPDATE magnet SET "size" = ? WHERE "link" = ?""", (size,link))
         finally:
             self.db.commit()
         return
@@ -154,6 +157,18 @@ class torrentDb:
             record = dict(zip(columnName, row))
             magnetRecords.append(record)
         return magnetRecords
+
+    def _updateMagnetDate(self):
+        records=self.getMagnetRecords()
+        cur = self.getCurscur()
+        for r in records:
+            try:
+                parsedDatetime = datetime.datetime.strptime(r['date'], "%a %b %d %H:%M:%S %Y")
+            except ValueError as err:
+                continue
+            r['date'] = parsedDatetime.strftime("%Y-%m-%d %H:%M:%S")
+            cur.execute("""UPDATE magnet SET "date" = ? WHERE "link" = ?""", (r['date'],r['link']))
+        self.db.commit()
 
 
 def makeArgProcesser():
