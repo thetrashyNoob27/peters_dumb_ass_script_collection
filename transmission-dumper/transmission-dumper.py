@@ -12,44 +12,49 @@ import os
 def listTorrents(server="192.168.16.6:9091"):
     command = shlex.split("transmission-remote %s -l" % (server))
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-
-    torrentListRe = re.compile(r'(\d+)\s+(\d+)\%\s+(.+B)\s+([^ ]+)\s+([^ ]+)\s+([^ ]+)\s+([^ ]+)\s+([^ ]+)\s+([^ ]+)\n')
-    torrentRecords = torrentListRe.findall(result.stdout)
+    resultLines=result.stdout.split('\n')
 
     recordList = []
 
-    for rec in torrentRecords:
-        row = {}
-        #    ID   Done       Have  ETA           Up    Down  Ratio  Status       Name
-        _idx = 0
-        row['ID'] = int(rec[_idx])
-        _idx += 1
-        row['Done'] = rec[_idx]
-        _idx += 1
-        row['Have'] = rec[_idx]
-        _idx += 1
-        row['ETA'] = rec[_idx]
-        _idx += 1
-        row['Up'] = rec[_idx]
-        _idx += 1
-        row['Down'] = rec[_idx]
-        _idx += 1
-        row['Ratio'] = rec[_idx]
-        _idx += 1
-        row['Status'] = rec[_idx]
-        _idx += 1
-        row['Name'] = rec[_idx]
-        _idx += 1
-        del _idx
+    headerLine = resultLines[0]
+    splitIndex = []
+    headerNames = [h for h in headerLine.split(' ') if len(h) > 0]
+    splitIndex = [headerLine.find(h) + len(h) for h in headerNames]
+    recordLine = resultLines[1:-2]
 
-        recordList.append(row)
+
+    for r in recordLine:
+        rowInfo = {}
+        lastIndex = 0
+        for idx, name in enumerate(headerNames):
+            split = splitIndex[idx]
+            if name == 'Name':
+                subStr = r[split - len('Name'):].strip()
+            elif name == "Status":
+                subStr = r[split - len('Status'):splitIndex[idx + 1] - len(headerNames[idx + 1])].strip()
+            elif name == "ETA":
+                endIndex = -1
+                for i in range(splitIndex[idx + 1] - 1, split, -1):
+                    endIndex = i
+                    if r[i] == ' ':
+                        break
+                subStr = r[split - len('ETA'):endIndex].strip()
+                split = endIndex
+            else:
+                subStr = r[lastIndex:split].strip()
+
+            rowInfo[name] = subStr
+            lastIndex = split
+        recordList.append(rowInfo)
+
+
     return recordList
 
 
 def dumpTorrentInfo(server="192.168.16.6:9091"):
     records = listTorrents(server)
     for t in records:
-        command = shlex.split("transmission-remote %s -t %d --info" % (server, t['ID']))
+        command = shlex.split("transmission-remote %s -t %s --info" % (server, t['ID']))
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         t['info'] = result.stdout
         magnetRe = re.compile("  Magnet: (.+)\n")
