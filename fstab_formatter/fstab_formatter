@@ -26,8 +26,6 @@ if __name__ == '__main__':
             if fieldMaxLen[fieldIdx]<thisSize:
                 fieldMaxLen[fieldIdx]=thisSize
 
-    print(fieldMaxLen)
-
     for ruleIdx,rule in enumerate(fstabLines):
         if type(rule) is not list:
             continue
