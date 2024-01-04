@@ -15,6 +15,7 @@ if __name__ == '__main__':
             if not matchRes:
                 continue
             vid = matchRes.group(2)
+            videoName=matchRes.group(1)
             try:
                 videoIDInfo[vid].append(filePath)
             except KeyError as e:

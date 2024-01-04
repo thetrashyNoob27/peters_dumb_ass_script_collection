@@ -1,0 +1,77 @@
+this script help me to remove fucked up dir by cp/unzip/tar -xvf.
+how to use:
+and_delete.py [-h] [-v] src_path dst_path
+
+remove all file and folder(if empty) in dst_path witch present in src_path.
+
+example:
+1.
+.
+├── fuckeddir
+│   ├── config.json
+│   ├── geoip.dat
+│   ├── geoip-only-cn-private.dat
+│   ├── geosite.dat
+│   ├── systemd
+│   │   ├── remove
+│   │   ├── special
+│   │   └── system
+│   │       ├── v2ray.service
+│   │       └── v2ray@.service
+│   ├── v2ray
+│   ├── vpoint_socks_vmess.json
+│   └── vpoint_vmess_freedom.json
+├── v2ray
+│   ├── config.json
+│   ├── geoip.dat
+│   ├── geoip-only-cn-private.dat
+│   ├── geosite.dat
+│   ├── systemd
+│   │   ├── remove
+│   │   └── system
+│   │       ├── v2ray.service
+│   │       └── v2ray@.service
+│   ├── v2ray
+│   ├── vpoint_socks_vmess.json
+│   └── vpoint_vmess_freedom.json
+└── v2ray-linux-64.zip
+
+9 directories, 20 files
+
+
+2. execute   and_delete  -v v2ray/ fuckeddir/
+output:
+src path: v2ray/
+dst path: fuckeddir/
+path fuckeddir//systemd/ not empty. not removing.
+fuckeddir//systemd/system/v2ray@.service
+fuckeddir//systemd/system/v2ray.service
+fuckeddir//config.json
+fuckeddir//geoip-only-cn-private.dat
+fuckeddir//vpoint_vmess_freedom.json
+fuckeddir//geosite.dat
+fuckeddir//v2ray
+fuckeddir//geoip.dat
+fuckeddir//vpoint_socks_vmess.json
+fuckeddir//systemd/remove/
+fuckeddir//systemd/system/
+
+3. result
+.
+├── fuckeddir
+│   └── systemd
+│       └── special
+├── v2ray
+│   ├── config.json
+│   ├── geoip.dat
+│   ├── geoip-only-cn-private.dat
+│   ├── geosite.dat
+│   ├── systemd
+│   │   ├── remove
+│   │   └── system
+│   │       ├── v2ray.service
+│   │       └── v2ray@.service
+│   ├── v2ray
+│   ├── vpoint_socks_vmess.json
+│   └── vpoint_vmess_freedom.json
+└── v2ray-linux-64.zip
