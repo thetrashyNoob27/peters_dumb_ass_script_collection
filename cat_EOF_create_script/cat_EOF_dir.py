@@ -44,6 +44,8 @@ if __name__ == "__main__":
 
     print("#make cat EOF")
     for f in fileList:
+        if os.path.islink(f):
+            continue
         notTextFile = False
         createPath = os.path.relpath(f, relativePath)
         with open(f, 'r') as fd:
