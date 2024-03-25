@@ -24,6 +24,7 @@ if __name__ == "__main__":
     relativePath = os.path.dirname(os.getcwd())
     createRoot = os.path.basename(os.getcwd())
 
+
     for root, dirs, files in os.walk(os.getcwd()):
         for file in files:
             filePath = os.path.join(root, file)
@@ -32,11 +33,15 @@ if __name__ == "__main__":
             dirPath = os.path.join(root, directory)
             folderList.append(dirPath)
 
+
     folderList = reduce_paths(folderList)
 
     # mkdir bash
     scriptStr = []
     print("#make paths")
+    cmd = "mkdir -pv \"%s\"" % (createRoot)
+    scriptStr.append(cmd)
+
     for f in folderList:
         createPath = os.path.relpath(f, relativePath)
         cmd = "mkdir -pv \"%s\"" % (createPath)

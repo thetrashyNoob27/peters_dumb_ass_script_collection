@@ -15,4 +15,4 @@ echo "install to ${INSTALL_PATH}";
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 
-cp "cat_EOF_dir.py" "${INSTALL_PATH}";
+cp -v "cat_EOF_dir.py" "${INSTALL_PATH}";
