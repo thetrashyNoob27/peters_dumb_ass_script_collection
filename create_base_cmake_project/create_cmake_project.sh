@@ -8,7 +8,7 @@ echo "${PROJECT_NAME}";
 if [[ -z "$PROJECT_NAME" ]]; then
     echo "project name empty.";
     exit;
-else
+fi
 
 mkdir "${PROJECT_NAME}" && cd "${PROJECT_NAME}";
 if [[ $? -ne 0 ]];
