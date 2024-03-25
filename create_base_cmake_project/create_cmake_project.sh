@@ -152,9 +152,9 @@ void print_env_vars(char **env);
 
 #include "config.h"
 #ifdef ENABLE_ARGPRASE
-#include <boost/program_options.hpp>
 #include <cstdlib>
 extern float value;
+#include <boost/program_options.hpp>
 boost::program_options::variables_map arg_praser(int argc, char **argv);
 #endif
 #endif
