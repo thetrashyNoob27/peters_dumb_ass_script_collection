@@ -34,7 +34,7 @@ include_directories("\${CMAKE_CURRENT_SOURCE_DIR}")
 
 find_library(ARG_PRASE_LIB boost_program_options)
 if (ARG_PRASE_LIB)
-set(ENABLE_ARG_PARSE TRUE)
+add_definitions(-DENABLE_ARG_PARSE)
 message(STATUS "boost::program_options found: \${ARG_PRASE_LIB}")
 else()
 message(WARNING "not found, disable arg processing.")
@@ -45,7 +45,7 @@ include_directories("\${CMAKE_BINARY_DIR}")
 add_executable("\${PROJECT_BINARY}" main.cpp utils.cpp)
 
 if (ARG_PRASE_LIB)
-message(STATUS "boost::program_options found: \${ARG_PRASE_LIB}")
+target_link_libraries("\${PROJECT_BINARY}" PRIVATE \${ARG_PRASE_LIB})
 else()
 endif()
 EOF
@@ -54,7 +54,6 @@ cat<<EOF>config.h.in
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define ENABLE_ARG_PRASE "@ENABLE_ARG_PRASE@"
 #define PROJECT_NAME "@PROJECT_NAME@"
 #define PROJECT_BINARY "@PROJECT_BINARY@"
 #define PROJECT_VERSION "@PROJECT_VERSION@"
@@ -64,7 +63,7 @@ cat<<EOF>config.h.in
 
 #endif
 
-#ifdef ENABLE_ARGPRASE
+#ifdef ENABLE_ARG_PARSE
 #else
 #endif
 
@@ -72,6 +71,8 @@ EOF
 
 cat<<EOF >"build_n_run.sh"
 #!/usr/bin/bash
+SCRIPT_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd "\${SCRIPT_DIR}";
 if [ -d ".build" ]
 then
 #just cd to it.
@@ -113,7 +114,7 @@ int main(int argc, char **argv, char **env)
   
     std::printf("project: %s version:%s\n", PROJECT_NAME, PROJECT_VERSION);
     print_args(argc, argv);
-#ifdef ENABLE_ARGPRASE
+#ifdef ENABLE_ARG_PARSE
     auto vm = arg_praser(argc, argv);
     if (vm.count("string"))
     {
@@ -139,6 +140,8 @@ int main(int argc, char **argv, char **env)
         }
         std::cout << std::endl;
     }
+#else
+    std::cout <<"boost_program_options no found." << std::endl;
 #endif
 }
 
@@ -164,7 +167,7 @@ void print_args(int argc, char **argv);
 void print_env_vars(char **env);
 
 #include "config.h"
-#ifdef ENABLE_ARGPRASE
+#ifdef ENABLE_ARG_PARSE
 #include <boost/program_options.hpp>
 #include <cstdlib>
 extern float value;
@@ -201,7 +204,7 @@ void print_env_vars(char **env)
     return;
 }
 
-#ifdef ENABLE_ARGPRASE
+#ifdef ENABLE_ARG_PARSE
 float value;
 boost::program_options::variables_map arg_praser(int argc, char **argv)
 {
