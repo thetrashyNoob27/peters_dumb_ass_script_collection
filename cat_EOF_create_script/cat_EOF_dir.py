@@ -89,6 +89,7 @@ def file2heredocument(path, createBase, force_base64=False):
         notTextFile = True
     if notTextFile or force_base64:
         createPath64 = createPath+".base64"
+        content = base64.b64encode(content).decode()
     else:
         pass
 
@@ -109,7 +110,7 @@ def file2heredocument(path, createBase, force_base64=False):
         cmd += "cat \"%s\" | base64 -d > \"%s\"\n" % (
             createPath64, createPath)
         cmd += "rm \"%s\"\n" % (createPath64)
-    fileMode = '0' + format(os.stat(f).st_mode % 512, 'o')
+    fileMode = '0' + format(os.stat(f).st_mode % 4096, 'o')
     cmd += "chmod %s \"%s\"" % (fileMode, createPath)
     return cmd
 
@@ -118,7 +119,10 @@ def elementDiscovery(include_path):
     folderList = []
     fileList = []
     createBase = os.path.basename(os.path.realpath(parms.base_path))
-    folderList.append(include_path)
+    if os.path.isdir(include_path):
+        folderList.append(include_path)
+    else:
+        fileList.append(include_path)
 
     for root, dirs, files in os.walk(include_path):
         for file in files:
@@ -134,7 +138,6 @@ def elementDiscovery(include_path):
 
 if __name__ == "__main__":
     parms = argprase()
-    print(parms)
 
     for include_path in parms.include_paths:
         include_path = os.path.realpath(include_path)
@@ -142,12 +145,10 @@ if __name__ == "__main__":
         basePath = os.path.realpath(parms.base_path)
         if include_path != os.path.realpath(basePath):
             createBase = os.path.basename(os.path.realpath(basePath))
-        print(include_path)
         folderList, fileList = elementDiscovery(include_path)
         for idx, path in enumerate(folderList):
             folderList[idx] = os.path.relpath(
                 path, os.path.realpath(basePath))
-        print(folderList)
         # mkdir bash
         scriptStr = folders2mkdir(folderList)
         for f in fileList:
