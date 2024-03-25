@@ -29,9 +29,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories("\${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_executable("${PROJECT_NAME}" main.cpp prints.cpp)
+add_executable("${PROJECT_NAME}" main.cpp utils.cpp)
 EOF
 
+cat<<EOF >"build_n_run.sh"
+#!/usr/bin/bash
+
+mkdir build &&cd build;
+cmake ..;
+make;
+"./${PROJECT_NAME}";
+EOF
+chmod a+x "build_n_run.sh";
 
 cat<<EOF >"main.cpp"
 #include <iostream>
@@ -50,24 +59,24 @@ EOF
 cat<<EOF >"main.h"
 #ifndef _MAIN_H_
 #define _MAIN_H_
-#include "prints.h"
+#include "utils.h"
 #endif
 
 EOF
 
 
-cat<<EOF >"prints.h"
-#ifndef _PRINTS_H_
-#define _PRINTS_H_
+cat<<EOF >"utils.h"
+#ifndef _UTILS_H_
+#define _UTILS_H_
 void print_args(int argc, char **argv);
 void print_env_vars(char **env);
 #endif
 
 EOF
 
-cat<<EOF >"prints.cpp"
+cat<<EOF >"utils.cpp"
 #include <iostream>
-#include "prints.h"
+#include "utils.h"
 
 void print_args(int argc, char **argv)
 {
@@ -93,3 +102,5 @@ void print_env_vars(char **env)
 }
 
 EOF
+
+echo "project create ok.";
