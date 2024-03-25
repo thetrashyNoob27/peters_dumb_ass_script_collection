@@ -34,6 +34,7 @@ include_directories("\${CMAKE_CURRENT_SOURCE_DIR}")
 
 find_library(ARG_PRASE_LIB boost_program_options)
 if (ARG_PRASE_LIB)
+set(ENABLE_ARG_PARSE TRUE)
 message(STATUS "boost::program_options found: \${ARG_PRASE_LIB}")
 else()
 message(WARNING "not found, disable arg processing.")
@@ -42,14 +43,18 @@ configure_file(config.h.in config.h)
 include_directories("\${CMAKE_BINARY_DIR}")
 
 add_executable("\${PROJECT_BINARY}" main.cpp utils.cpp)
-target_link_libraries("\${PROJECT_BINARY}" PRIVATE \${ARG_PRASE_LIB})
+
+if (ARG_PRASE_LIB)
+message(STATUS "boost::program_options found: \${ARG_PRASE_LIB}")
+else()
+endif()
 EOF
 
 cat<<EOF>config.h.in
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define ENABLE_ARGPRASE "@ARG_PRASE_LIB@@"
+#define ENABLE_ARG_PRASE "@ENABLE_ARG_PRASE@"
 #define PROJECT_NAME "@PROJECT_NAME@"
 #define PROJECT_BINARY "@PROJECT_BINARY@"
 #define PROJECT_VERSION "@PROJECT_VERSION@"
@@ -78,6 +83,14 @@ fi
 
 cd .build;
 cmake ..;
+if [[ \$? -ne 0 ]];
+then 
+echo "cmake fail";
+exit;
+else
+clear;
+fi
+
 make;
 if [[ \$? -ne 0 ]];
 then 
@@ -152,9 +165,9 @@ void print_env_vars(char **env);
 
 #include "config.h"
 #ifdef ENABLE_ARGPRASE
+#include <boost/program_options.hpp>
 #include <cstdlib>
 extern float value;
-#include <boost/program_options.hpp>
 boost::program_options::variables_map arg_praser(int argc, char **argv);
 #endif
 #endif
