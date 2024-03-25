@@ -46,7 +46,7 @@ fi
 cd .build;
 cmake ..;
 make;
-"./hello";
+./"${PROJECT_NAME}";
 
 EOF
 chmod a+x "build_n_run.sh";
