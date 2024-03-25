@@ -34,11 +34,20 @@ EOF
 
 cat<<EOF >"build_n_run.sh"
 #!/usr/bin/bash
+if [ -d ".build" ]
+then
+#just cd to it.
+:
+else
+rm -rv .build;
+mkdir .build;
+fi
 
-mkdir build &&cd build;
+cd .build;
 cmake ..;
 make;
-"./${PROJECT_NAME}";
+"./hello";
+
 EOF
 chmod a+x "build_n_run.sh";
 
