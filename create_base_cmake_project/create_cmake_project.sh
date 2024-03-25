@@ -46,9 +46,11 @@ cat<<EOF >"main.cpp"
 #include <iostream>
 #include "main.h"
 
+const char* project_name = "${PROJECT_NAME}";
 int main(int argc, char **argv, char **env)
 {
-    std::printf("project: hello \n");
+    
+    std::printf("project: %s \n",project_name);
     print_args(argc, argv);
     print_env_vars(env);
     return 0;
@@ -60,6 +62,9 @@ cat<<EOF >"main.h"
 #ifndef _MAIN_H_
 #define _MAIN_H_
 #include "utils.h"
+
+extern const char* project_name;
+
 #endif
 
 EOF
