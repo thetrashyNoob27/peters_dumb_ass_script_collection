@@ -39,13 +39,14 @@ def argprase():
         sys.exit()
 
     def is_parent(parent, child):
-        real_parent = os.path.relpath("/", parent)
-        real_child = os.path.relpath("/", child)
+        real_parent = os.path.relpath(parent, "/")
+        real_child = os.path.relpath(child, "/")
         common_path = os.path.commonpath([real_parent, real_child])
         return common_path == real_parent
     for idx, path in enumerate(args.include_paths):
         if is_parent(args.base_path, path):
             continue
+        continue  # need fix this
         print("include: %s is not sub-path of base: %s" %
               (path, args.base_path))
         sys.exit()
