@@ -162,8 +162,7 @@ if __name__ == "__main__":
         for cmd in scriptStr:
             print(cmd)
 
-        scriptPath = "/tmp/cat_EOF_create_script_%s.txt" % (
-            os.path.dirname(createBase))
+        scriptPath = "/tmp/cat_EOF_create_script_%s.txt" % (createBase)
         with open(scriptPath, 'w') as f:
             f.write("#!/usr/bin/bash\n")
             for cmd in scriptStr:
