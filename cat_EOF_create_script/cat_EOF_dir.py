@@ -3,6 +3,7 @@ import base64
 import sys
 import os
 import argparse
+import hashlib
 
 
 def argprase():
@@ -81,8 +82,12 @@ def file2heredocument(path, createBase, force_base64=False):
     _EOF_ += "__"
     createPath = os.path.relpath(path, createBase)
 
+    hasher = hashlib.sha256()
+    dataSize = 0
     with open(path, 'rb') as fd:
         content = fd.read()
+        hasher.update(content)
+        dataSize = len(content)
     try:
         content = content.decode()
         notTextFile = False
@@ -113,6 +118,10 @@ def file2heredocument(path, createBase, force_base64=False):
         cmd += "rm \"%s\"\n" % (createPath64)
     fileMode = '0' + format(os.stat(f).st_mode % 4096, 'o')
     cmd += "chmod %s \"%s\"" % (fileMode, createPath)
+    cmd += "\n"
+    cmd += "# sha256[%s] size[%sBytes]" % (
+        hasher.hexdigest(), "{:,}".format(dataSize))
+    cmd += "\n"
     return cmd
 
 
@@ -139,6 +148,7 @@ def elementDiscovery(include_path):
 
 if __name__ == "__main__":
     parms = argprase()
+    scriptStr = []
 
     for include_path in parms.include_paths:
         include_path = os.path.realpath(include_path)
@@ -151,7 +161,7 @@ if __name__ == "__main__":
             folderList[idx] = os.path.relpath(
                 path, os.path.realpath(basePath))
         # mkdir bash
-        scriptStr = folders2mkdir(folderList)
+        scriptStr.extend(folders2mkdir(folderList))
         for f in fileList:
             if os.path.islink(f):
                 continue
@@ -159,13 +169,14 @@ if __name__ == "__main__":
             cmd = file2heredocument(f, basePath)
             scriptStr.append(cmd)
 
+    for cmd in scriptStr:
+        print(cmd)
+    if len(createBase) == 0:
+        createBase = os.path.basename(parms.base_path)
+    scriptPath = "/tmp/cat_EOF_create_script_%s.txt" % (createBase)
+    with open(scriptPath, 'w') as f:
+        f.write("#!/usr/bin/bash\n")
         for cmd in scriptStr:
-            print(cmd)
-
-        scriptPath = "/tmp/cat_EOF_create_script_%s.txt" % (createBase)
-        with open(scriptPath, 'w') as f:
-            f.write("#!/usr/bin/bash\n")
-            for cmd in scriptStr:
-                f.write(cmd)
-                f.write("\n")
-        os.chmod(scriptPath, os.stat(scriptPath).st_mode | 0o111)
+            f.write(cmd)
+            f.write("\n")
+    os.chmod(scriptPath, os.stat(scriptPath).st_mode | 0o111)
