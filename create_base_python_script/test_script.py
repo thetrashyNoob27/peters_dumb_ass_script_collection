@@ -14,7 +14,7 @@ VERSION_PATCH = 0
 logger = logging.getLogger(PROJECT_NAME)
 
 
-def main() -> None:
+def main(argConfigure) -> None:
     print("hello,python.")
     return
 
@@ -141,4 +141,4 @@ if __name__ == "__main__":
     logger.info(f"process args:{argConfigure.__str__()}")
     logger.info(f"script path:{scriptDir()}")
     logArgs(argConfigure)
-    main()
+    main(argConfigure)
