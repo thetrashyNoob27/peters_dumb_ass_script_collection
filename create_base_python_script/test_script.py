@@ -11,7 +11,7 @@ VERSION_MAJOR = 0
 VERSION_MINOR = 0
 VERSION_PATCH = 0
 
-logger = logging.getLogger()
+logger = logging.getLogger(PROJECT_NAME)
 
 
 def main() -> None:
@@ -65,7 +65,7 @@ class SQLiteHandler(logging.Handler):
 
 
 def log_init(LogFilePath: str) -> None:
-    logger = logging.getLogger()
+    logger = logging.getLogger(PROJECT_NAME)
     logger.setLevel(logging.DEBUG)
 
     # format

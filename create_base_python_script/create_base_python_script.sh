@@ -25,7 +25,7 @@ VERSION_MAJOR = 0
 VERSION_MINOR = 0
 VERSION_PATCH = 0
 
-logger = logging.getLogger()
+logger = logging.getLogger(PROJECT_NAME)
 
 
 def main() -> None:
@@ -79,7 +79,7 @@ class SQLiteHandler(logging.Handler):
 
 
 def log_init(LogFilePath: str) -> None:
-    logger = logging.getLogger()
+    logger = logging.getLogger(PROJECT_NAME)
     logger.setLevel(logging.DEBUG)
 
     # format
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     logger.info(f"script path:{scriptDir()}")
     logArgs(argConfigure)
     main()
-#create by base python script creator 0.0.0
+#create by base python script creator 0.1.0
 EOF
 
 echo "# create on $(date "+ [%z]%F %H:%M:%S")">>"${PROJECT_NAME}.py";
