@@ -27,6 +27,7 @@ class SQLiteHandler(logging.Handler):
                 tempfile.gettempdir(), os.path.sep, PROJECT_NAME)
         self.db = db
         self.conn = sqlite3.connect(self.db)
+        self.conn.execute('PRAGMA journal_mode = WAL')
         self.cur = self.conn.cursor()
         self.tableName = "execute-"+datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         tableCreateCMD = "CREATE TABLE IF NOT EXISTS \"%s\" (id INTEGER PRIMARY KEY, time TEXT, logSpace TEXT,module TEXT, level TEXT, threadName TEXT, thread TEXT,processID TEXT,fullpath TEXT,file TEXT,function TEXT,line TEXT,stackInfo Text, message TEXT)" % (

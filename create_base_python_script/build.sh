@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 VERSION_MAJOR=0;
-VERSION_MINOR=2;
+VERSION_MINOR=3;
 VERSION_PATCH=0;
 
 script="create_base_python_script.sh";
