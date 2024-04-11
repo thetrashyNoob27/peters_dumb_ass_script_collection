@@ -67,6 +67,8 @@ then
     mkdir -p "${PROFILE_DIRNAME}";
 cat<<'EOF'>> "${PROFILE_DIRNAME}"/psp;
 FFMPEG_CONFIG='-vcodec libx264 -vf 'scale=480:-1' -crf 18 -profile:v main -level:v 2.1 -x264-params ref=3:bframes=1 -acodec aac -b:a 128k -ac 2 -movflags +faststart';
+VIDEO_SUFFIX="mp4"
+VIDEO_CONTAINER="mp4"
 EOF
 cat<<'EOF'>> "${PROFILE_DIRNAME}"/mipad1-1080;
 FFMPEG_CONFIG='-c:v h264 -vf 'scale=-1:1080' -crf 18';
@@ -76,18 +78,25 @@ FFMPEG_CONFIG='-c:v h264 -vf 'scale=-1:720' -crf 18';
 EOF
 fi
 
-source <(grep -E '^(FFMPEG_CONFIG|VAR2)=' ${PROFILE_PATH})
+source <(grep -E '^(FFMPEG_CONFIG|VIDEO_SUFFIX|VIDEO_CONTAINER)=' ${PROFILE_PATH})
 if [[ 0 -ne $? ]];
 then
     echo "load profile fail!(${PROFILE_PATH})";
     exit;
 fi
 
-if [[ -z "${FFMPEG_CONFIG}" ]];
+if [[ -z "${FFMPEG_CONFIG}" ]]
 then
     
-    echo "ffmpeg args empty!";
+    echo "ffmpeg args missing config!";
     exit;
+fi
+
+if [[ -z "${VIDEO_SUFFIX}" ]]||[[ -z "${VIDEO_CONTAINER}" ]];
+then
+    echo "video container format setting missing,default set to mkv";
+    VIDEO_SUFFIX="mkv";
+    VIDEO_CONTAINER="matroska";
 fi
 
 VIDEO_IN_PATH=()
@@ -114,17 +123,16 @@ do
     video_name="${video_name%.*}";
     output_name="${output_folder}"/"${video_name}";
     
-    if [[ -f "${output_name}".mkv ]];
+    if [[ -f "${output_name}"."${VIDEO_SUFFIX}" ]];
     then
         echo "video: ${output_name} finished. skip.";
         continue;
     fi;
-    ffmpeg -y -i "${v}"  ${FFMPEG_CONFIG}  -f matroska  "${output_name}".tmp;
+    ffmpeg -y -i "${v}"  ${FFMPEG_CONFIG}  -f ${VIDEO_CONTAINER}  "${output_name}".tmp;
     if [[ 0 -eq $? ]];
     then
-        mv "${output_name}".tmp "${output_name}".mkv;
+        mv "${output_name}".tmp "${output_name}"."${VIDEO_SUFFIX}";
     else
         rm "${output_name}".tmp;
     fi
-    
 done
