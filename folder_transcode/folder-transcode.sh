@@ -65,16 +65,19 @@ PROFILE_PATH="${PROFILE_DIRNAME}"/"${PROFILE}";
 if [[ ! -d "${PROFILE_DIRNAME}" ]];
 then
     mkdir -p "${PROFILE_DIRNAME}";
-cat<<'EOF'>> "${PROFILE_DIRNAME}"/psp;
+cat<<'EOF'> "${PROFILE_DIRNAME}"/psp;
 FFMPEG_CONFIG='-vcodec libx264 -vf 'scale=-2:272' -vf format=yuv420p -crf 18 -preset veryslow  -profile:v main -level:v 2.1 -x264-params ref=3:bframes=1 -acodec aac -b:a 128k -ac 2 -movflags +faststart';
 VIDEO_SUFFIX="mp4"
 VIDEO_CONTAINER="mp4"
 EOF
-cat<<'EOF'>> "${PROFILE_DIRNAME}"/mipad1-1080;
-FFMPEG_CONFIG='-c:v h264 -vf 'scale=-2:1080' -vf format=yuv422p -crf 18' -preset veryslow;
+cat<<'EOF'> "${PROFILE_DIRNAME}"/mipad1-1080;
+FFMPEG_CONFIG='-c:v h264 -vf 'scale=-2:1080' -vf format=yuv422p -crf 18 -preset veryslow';
 EOF
-cat<<'EOF'>> "${PROFILE_DIRNAME}"/mipad1-720;
-FFMPEG_CONFIG='-c:v h264 -vf 'scale=-2:720'  -vf format=yuv422p -crf 18' -preset veryslow;
+cat<<'EOF'> "${PROFILE_DIRNAME}"/mipad1-720;
+FFMPEG_CONFIG='-c:v h264 -vf 'scale=-2:720'  -vf format=yuv422p -crf 18 -preset veryslow';
+EOF
+cat<<'EOF'> "${PROFILE_DIRNAME}"/small-264-1mbps;
+FFMPEG_CONFIG='-c:v h264 -vf 'scale=-2:360'  -vf format=yuv420p -crf 10 -b 1M -preset veryslow';
 EOF
 fi
 
