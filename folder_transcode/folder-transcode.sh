@@ -66,7 +66,7 @@ if [[ ! -d "${PROFILE_DIRNAME}" ]];
 then
     mkdir -p "${PROFILE_DIRNAME}";
 cat<<'EOF'>> "${PROFILE_DIRNAME}"/psp;
-FFMPEG_CONFIG='-vcodec libx264 -vf 'scale=480:-2' -crf 18 -profile:v main -level:v 2.1 -x264-params ref=3:bframes=1 -acodec aac -b:a 128k -ac 2 -movflags +faststart';
+FFMPEG_CONFIG='-vcodec libx264 -vf 'scale=480:-2' -vf format=yuv420p -crf 18 -profile:v main -level:v 2.1 -x264-params ref=3:bframes=1 -acodec aac -b:a 128k -ac 2 -movflags +faststart';
 VIDEO_SUFFIX="mp4"
 VIDEO_CONTAINER="mp4"
 EOF
