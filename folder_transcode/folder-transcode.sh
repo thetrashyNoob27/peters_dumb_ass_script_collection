@@ -128,7 +128,7 @@ do
         echo "video: ${output_name} finished. skip.";
         continue;
     fi;
-    ffmpeg -y -i "${v}"  ${FFMPEG_CONFIG}  -f ${VIDEO_CONTAINER}  "${output_name}".tmp;
+    (ffmpeg -y -i "${v}"  ${FFMPEG_CONFIG}  -f ${VIDEO_CONTAINER}  "${output_name}".tmp);
     if [[ 0 -eq $? ]];
     then
         mv "${output_name}".tmp "${output_name}"."${VIDEO_SUFFIX}";
