@@ -69,10 +69,10 @@ cat<<'EOF'>> "${PROFILE_DIRNAME}"/psp;
 FFMPEG_CONFIG='-vcodec libx264 -vf 'scale=480:-1' -crf 18 -profile:v main -level:v 2.1 -x264-params ref=3:bframes=1 -acodec aac -b:a 128k -ac 2 -movflags +faststart';
 EOF
 cat<<'EOF'>> "${PROFILE_DIRNAME}"/mipad1-1080;
-FFMPEG_CONFIG='-c:v h265 -vf 'scale=-1:1080' -crf 18';
+FFMPEG_CONFIG='-c:v h264 -vf 'scale=-1:1080' -crf 18';
 EOF
 cat<<'EOF'>> "${PROFILE_DIRNAME}"/mipad1-720;
-FFMPEG_CONFIG='-c:v h265 -vf 'scale=-1:720' -crf 18';
+FFMPEG_CONFIG='-c:v h264 -vf 'scale=-1:720' -crf 18';
 EOF
 fi
 
