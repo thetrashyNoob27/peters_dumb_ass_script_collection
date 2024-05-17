@@ -76,7 +76,7 @@ def log_init(argConfigure) -> None:
     # STDOUT
     console_handler = logging.StreamHandler()
     if argConfigure.verbose:
-        console_handler.setLevel(logger.debug)
+        console_handler.setLevel(logger.DEBUG)
     else:
         console_handler.setLevel(logging.WARNING)
     console_handler.setFormatter(formatter)
