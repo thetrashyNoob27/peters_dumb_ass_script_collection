@@ -1,12 +1,12 @@
 #!/usr/bin/bash
 
 VERSION_MAJOR=0;
-VERSION_MINOR=3;
+VERSION_MINOR=4;
 VERSION_PATCH=0;
 
 script="create_base_python_script.sh";
 if [[ -f "$script" ]]; then
-rm -v "${script}";
+    rm -v "${script}";
 fi
 
 cat<<'__EOF__'>>"${script}"
@@ -26,11 +26,11 @@ fi
 cat<<EOF >"${PROJECT_NAME}.py"
 __EOF__
 
-#begin of python code 
+#begin of python code
 cat test_script.py >>"${script}";
 echo "#create by base python script creator ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}" >>"${script}";
 
-#end of python code 
+#end of python code
 
 
 cat<<'__EOF__'>>"${script}"

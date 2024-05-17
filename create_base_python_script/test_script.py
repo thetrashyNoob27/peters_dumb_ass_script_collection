@@ -65,22 +65,25 @@ class SQLiteHandler(logging.Handler):
         logging.Handler.close(self)
 
 
-def log_init(LogFilePath: str) -> None:
+def log_init(argConfigure) -> None:
     logger = logging.getLogger(PROJECT_NAME)
     logger.setLevel(logging.DEBUG)
 
     # format
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        '[%(asctime)s.%(msecs)03d][%(name)s][%(levelname)s][%(filename)s:%(lineno)d (%(funcName)s)]-> %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
     # STDOUT
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.WARNING)
+    if argConfigure.verbose:
+        console_handler.setLevel(logger.debug)
+    else:
+        console_handler.setLevel(logging.WARNING)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
-    logdir = LogFilePath
-    if LogFilePath == None:
+    logdir = argConfigure.logFilePath
+    if logdir == None:
         logdir = tempfile.gettempdir()
     # file
     logFilePath = "{}{}{}[{}].txt".format(
@@ -136,7 +139,7 @@ def scriptDir() -> str:
 
 if __name__ == "__main__":
     argConfigure = argProcess()
-    log_init(argConfigure.logFilePath)
+    log_init(argConfigure)
     logger.info(f"project: {PROJECT_NAME}")
     logger.info(f"version: {VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}")
     logger.info(f"process args:{argConfigure.__str__()}")
