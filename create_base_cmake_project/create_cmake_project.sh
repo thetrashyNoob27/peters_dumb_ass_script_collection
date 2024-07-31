@@ -2,11 +2,26 @@
 
 
 
-read -p "project name:" PROJECT_NAME;
-echo "${PROJECT_NAME}";
-
+#read -p "project name:" PROJECT_NAME;
+#echo "${PROJECT_NAME}";
+PROJECT_NAME=$1;
 if [[ -z "$PROJECT_NAME" ]]; then
-    echo "project name empty.";
+    echo "project name arg empty.";
+    exit;
+fi
+
+NEW_PROJECT_NAME=$(echo "${PROJECT_NAME}"| sed 's/[^a-zA-Z0-9]/_/g');
+if [[ "${NEW_PROJECT_NAME}" != "${PROJECT_NAME}" ]]
+then
+    echo "project name contain special char. replacing.";
+    echo "new name: ${NEW_PROJECT_NAME}";
+    PROJECT_NAME="${NEW_PROJECT_NAME}";
+fi
+unset NEW_PROJECT_NAME;
+
+if [[ -e "${PROJECT_NAME}" ]];
+then
+    echo "path with same name exist. abort.";
     exit;
 fi
 
