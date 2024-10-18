@@ -18,6 +18,7 @@ import argparse
 import logging
 import tempfile
 import datetime
+import threading
 import sqlite3
 
 PROJECT_NAME = "${PROJECT_NAME}"
@@ -35,12 +36,13 @@ def main(argConfigure) -> None:
 
 class SQLiteHandler(logging.Handler):
     def __init__(self, db: str = None):
+        self.dbLock=threading.Lock()
         logging.Handler.__init__(self)
         if db == None:
             db = "{}{}{}.sqlite3".format(
                 tempfile.gettempdir(), os.path.sep, PROJECT_NAME)
         self.db = db
-        self.conn = sqlite3.connect(self.db)
+        self.conn = sqlite3.connect(self.db, check_same_thread=False)
         self.conn.execute('PRAGMA journal_mode = WAL')
         self.cur = self.conn.cursor()
         self.tableName = "execute-"+datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
@@ -69,9 +71,10 @@ class SQLiteHandler(logging.Handler):
         return cmd
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.cur.execute(self.instertCMD, (record.asctime, record.name, record.module, record.levelname, record.threadName,
+        with self.dbLock:
+            self.cur.execute(self.instertCMD, (record.asctime, record.name, record.module, record.levelname, record.threadName,
                          record.thread, record.process, record.pathname, record.filename, record.funcName, record.lineno, record.stack_info, record.message))
-        self.conn.commit()
+            self.conn.commit()
         return
 
     def close(self) -> None:
@@ -160,7 +163,7 @@ if __name__ == "__main__":
     logger.info(f"script path:{scriptDir()}")
     logArgs(argConfigure)
     main(argConfigure)
-#create by base python script creator 0.4.0
+#create by base python script creator 0.5.0
 EOF
 
 echo "# create on $(date "+ [%z]%F %H:%M:%S")">>"${PROJECT_NAME}.py";
