@@ -313,7 +313,7 @@ else:
 
 if __name__ == "__main__":
     main(argConfigure)
-#create by base python script creator 0.4.0
+#create by base python script creator 0.5.0
 EOF
 
 echo "# create on $(date "+ [%z]%F %H:%M:%S")">>"${PROJECT_NAME}.py";
