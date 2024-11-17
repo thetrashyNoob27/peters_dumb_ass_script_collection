@@ -19,6 +19,7 @@ import argparse
 import logging
 import tempfile
 import datetime
+import threading
 import sqlite3
 import time
 import threading
@@ -48,6 +49,7 @@ def main(argConfigure) -> None:
 
 class SQLiteHandler(logging.Handler):
     def __init__(self, db: str = None):
+        self.dbLock=threading.Lock()
         logging.Handler.__init__(self)
         self.dbName = db
         self._ProcessSeprate()
@@ -81,7 +83,7 @@ class SQLiteHandler(logging.Handler):
             )
         self.db = db
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
-        self.conn.execute("PRAGMA journal_mode = WAL")
+        self.conn.execute('PRAGMA journal_mode = WAL')
         self.cur = self.conn.cursor()
         self.tableName = "execute-" + datetime.datetime.now().strftime(
             "%Y-%m-%d-%H-%M-%S"
