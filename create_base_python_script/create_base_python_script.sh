@@ -42,12 +42,12 @@ def main(argConfigure) -> None:
 
 
 class SQLiteHandler(logging.Handler):
-    def __init__(self, db: str = None, logKeepSeconds=24 * 60 * 60, logKeepCount=10):
+    def __init__(self, dbPath: str = None, logKeepSeconds=24 * 60 * 60, logKeepCount=10):
         self.timeFormat = "%Y-%m-%d-%H-%M-%S"
         logging.Handler.__init__(self)
-        self.dbName = db
-        self._ConnectSqlite()
-        self._removeLog(logKeepSeconds, logKeepCount)
+        self._ConnectSqlite(dbPath)
+        if self.conn is not None:
+            self._removeLog(logKeepSeconds, logKeepCount)
         self._startWriterThread()
 
     def __del__(self) -> None:
@@ -73,11 +73,12 @@ class SQLiteHandler(logging.Handler):
         self.SinkWriteThread.join()
         return
 
-    def _ConnectSqlite(self, db: str = None) -> None:
-        if db == None:
-            db = "{}{}{}.sqlite3".format(
-                tempfile.gettempdir(), os.path.sep, PROJECT_NAME
-            )
+    def _ConnectSqlite(self, dbPath: str = None) -> None:
+        if dbPath is None:
+            dbPath = tempfile.gettempdir()
+        db = "{}{}{}.sqlite3".format(
+            dbPath, os.path.sep, PROJECT_NAME
+        )
         self.db = db
         self.conn = sqlite3.connect(self.db, check_same_thread=False)
         self.conn.execute("PRAGMA journal_mode = WAL")
@@ -89,7 +90,12 @@ class SQLiteHandler(logging.Handler):
                 'CREATE TABLE IF NOT EXISTS "%s" (id INTEGER PRIMARY KEY, time TEXT, logSpace TEXT,module TEXT, level TEXT, threadName TEXT, thread TEXT,processID TEXT,fullpath TEXT,file TEXT,function TEXT,line TEXT,stackInfo Text, message TEXT)'
                 % (self.tableName)
         )
-        self.cur.execute(tableCreateCMD)
+        try:
+            self.cur.execute(tableCreateCMD)
+        except sqlite3.OperationalError as e:
+            print(f"create table fail:{e}", file=sys.stderr)
+            self.conn = None
+            return
         self.conn.commit()
 
         self.instertCMD = self._INSERT_builder(
@@ -147,6 +153,8 @@ class SQLiteHandler(logging.Handler):
         return
 
     def _disconnectSqlite(self) -> None:
+        if self.conn is None:
+            return
         self.conn.commit()
         self.conn.close()
         return
@@ -170,6 +178,8 @@ class SQLiteHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         if self.pendingWriteLogRecordQueue.full():
             print(f"message queue fill. cant log to sqlite writer", file=sys.stderr)
+            return
+        if self.conn is None:
             return
 
         msg = dict()
@@ -198,7 +208,10 @@ class SQLiteHandler(logging.Handler):
         return
 
     def writeLogRecord(self, msg) -> None:
-        self.cur.execute(
+        if self.conn is None:
+            return
+        cursur = self.conn.cursor()
+        cursur.execute(
             self.instertCMD,
             (
                 msg["asctime"],
@@ -228,7 +241,7 @@ class SQLiteHandler(logging.Handler):
                     break
                 msg = self.pendingWriteLogRecordQueue.get()
             self.writeLogRecord(msg)
-        self.conn.commit()
+        
         return
 
 
@@ -270,8 +283,7 @@ def log_init(argConfigure) -> None:
     logger.addHandler(file_handler)
 
     # sqlite3
-    dbFileName = "{}{}{}.sqlite3".format(logdir, os.path.sep, PROJECT_NAME)
-    sqlite_handler = SQLiteHandler(dbFileName, argConfigure.logKeepSeconds, argConfigure.logKeepCount)
+    sqlite_handler = SQLiteHandler(logdir, argConfigure.logKeepSeconds, argConfigure.logKeepCount)
     sqlite_handler.setLevel(logging.DEBUG)
     logger.addHandler(sqlite_handler)
 
@@ -285,13 +297,13 @@ def selectLogToRemove(logFiles, keepSeconds, keepCount):
     if fileCounts > keepCount:
 
         for record in logFiles[:-keepCount]:
-            name=record[0]
+            name = record[0]
             removeFileList.add(name)
 
     # calculate date limit
     nowTime = datetime.datetime.now()
     for record in logFiles:
-        recordTime=record[1]
+        recordTime = record[1]
         if recordTime >= nowTime:
             continue
         difftime = nowTime - recordTime
@@ -414,7 +426,7 @@ else:
 
 if __name__ == "__main__":
     main(argConfigure)
-#create by base python script creator 0.6.0
+#create by base python script creator 0.7.0
 EOF
 
 echo "# create on $(date "+ [%z]%F %H:%M:%S")">>"${PROJECT_NAME}.py";
