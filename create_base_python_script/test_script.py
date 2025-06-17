@@ -9,6 +9,8 @@ import sqlite3
 import time
 import threading
 import queue
+import json
+import re
 
 PROJECT_NAME = "${PROJECT_NAME}"
 VERSION_MAJOR = 0
@@ -19,32 +21,19 @@ ENABLE_LOGGER_4_MODULE = False
 logger = logging.getLogger(PROJECT_NAME)
 
 
-def loggingProformanceTest(writeCount: int = 1000):
-    start = time.monotonic()
-    logger.info(f"start log proformance test")
-    for i in range(0, writeCount):
-        logger.debug(f"{i}")
-    logger.info(f"finish log proformance test")
-    end = time.monotonic()
-
-    timeuseMS = (end - start) * 1000
-    logPerSec = writeCount / (end - start)
-    logger.info(f"{writeCount} log write timeuse :{timeuseMS:3f}ms ({logPerSec:2f}L/Sec)")
-    return
-
-
 def main(argConfigure) -> None:
-    logger.info("hello,python.")
+    logger.debug("hello,python.")
     time.sleep(1)
-    loggingProformanceTest(10000)
     return
 
 
 class SQLiteHandler(logging.Handler):
-    def __init__(self, db: str = None):
+    def __init__(self, db: str = None, logKeepSeconds=24 * 60 * 60, logKeepCount=10):
+        self.timeFormat = "%Y-%m-%d-%H-%M-%S"
         logging.Handler.__init__(self)
         self.dbName = db
         self._ConnectSqlite()
+        self._removeLog(logKeepSeconds, logKeepCount)
         self._startWriterThread()
 
     def __del__(self) -> None:
@@ -80,7 +69,7 @@ class SQLiteHandler(logging.Handler):
         self.conn.execute("PRAGMA journal_mode = WAL")
         self.cur = self.conn.cursor()
         self.tableName = "execute-" + datetime.datetime.now().strftime(
-            "%Y-%m-%d-%H-%M-%S"
+            self.timeFormat
         )
         tableCreateCMD = (
                 'CREATE TABLE IF NOT EXISTS "%s" (id INTEGER PRIMARY KEY, time TEXT, logSpace TEXT,module TEXT, level TEXT, threadName TEXT, thread TEXT,processID TEXT,fullpath TEXT,file TEXT,function TEXT,line TEXT,stackInfo Text, message TEXT)'
@@ -88,7 +77,6 @@ class SQLiteHandler(logging.Handler):
         )
         self.cur.execute(tableCreateCMD)
         self.conn.commit()
-
 
         self.instertCMD = self._INSERT_builder(
             [
@@ -107,6 +95,41 @@ class SQLiteHandler(logging.Handler):
                 "message",
             ]
         )
+        return
+
+    def _getTables(self):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        records = cursor.fetchall()
+        tableList = []
+        for n in records:
+            tableList.append(n[0])
+        return tableList
+
+    def _removeLog(self, logKeepSeconds, logKeepCount):
+        existTables = self._getTables()
+        tableTimeList = []
+        for name in existTables:
+            try:
+                tableDate = datetime.datetime.strptime(name, f"execute-{self.timeFormat}")
+            except ValueError:
+                continue
+            tableTimeList.append([name, tableDate])
+
+        toRemoveTables = selectLogToRemove(tableTimeList, logKeepSeconds, logKeepCount)
+
+        self._dropTableList(toRemoveTables)
+        return
+
+    def _dropTableList(self, tableList):
+        args = []
+        for f in tableList:
+            args.append((f,))
+
+        cursor = self.conn.cursor()
+        for table in tableList:
+            cursor.execute(f'DROP TABLE IF EXISTS "{table}";')
+        self.conn.commit()
         return
 
     def _disconnectSqlite(self) -> None:
@@ -207,10 +230,8 @@ def log_init(argConfigure) -> None:
 
     # STDOUT
     console_handler = logging.StreamHandler()
-    if argConfigure.verbose:
-        console_handler.setLevel(logging.DEBUG)
-    else:
-        console_handler.setLevel(logging.INFO)
+    _logLevel = getLoggingLevelMap()[argConfigure.logLevel]
+    console_handler.setLevel(_logLevel)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
@@ -218,12 +239,17 @@ def log_init(argConfigure) -> None:
     if logdir == None:
         logdir = tempfile.gettempdir()
     # file
+    dateFormat = "%Y-%m-%d-%H-%M-%S"
     logFilePath = "{}{}{}[{}].txt".format(
         logdir,
         os.path.sep,
         PROJECT_NAME,
-        datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"),
+        datetime.datetime.now().strftime(dateFormat)
     )
+
+    # remove old files
+    removeOldLogTxt(dateFormat, logDir=logdir, keepSeconds=argConfigure.logKeepSeconds, keepCount=argConfigure.logKeepCount)
+
     file_handler = logging.FileHandler(logFilePath)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
@@ -231,10 +257,65 @@ def log_init(argConfigure) -> None:
 
     # sqlite3
     dbFileName = "{}{}{}.sqlite3".format(logdir, os.path.sep, PROJECT_NAME)
-    sqlite_handler = SQLiteHandler(dbFileName)
+    sqlite_handler = SQLiteHandler(dbFileName, argConfigure.logKeepSeconds, argConfigure.logKeepCount)
     sqlite_handler.setLevel(logging.DEBUG)
     logger.addHandler(sqlite_handler)
 
+    return
+
+
+def selectLogToRemove(logFiles, keepSeconds, keepCount):
+    removeFileList = set()
+    # calculate count limit
+    fileCounts = len(logFiles)
+    if fileCounts > keepCount:
+
+        for record in logFiles[:-keepCount]:
+            name=record[0]
+            removeFileList.add(name)
+
+    # calculate date limit
+    nowTime = datetime.datetime.now()
+    for record in logFiles:
+        recordTime=record[1]
+        if recordTime >= nowTime:
+            continue
+        difftime = nowTime - recordTime
+        diffSec = difftime.seconds
+        overdue = diffSec > keepSeconds
+        if not overdue:
+            continue
+        removeFileList.add(record[0])
+    return removeFileList
+
+
+def removeOldLogTxt(dateFormat: str = "%Y-%m-%d-%H-%M-%S", logDir: str = tempfile.gettempdir(), keepSeconds: int = 60 * 60, keepCount: int = 10) -> None:
+    logFileNameRe = re.compile(re.escape(PROJECT_NAME) + re.escape('[') + "(.+)" + re.escape(']') + re.escape(".txt"))
+    logger.info(f"logFileNameRe:{logFileNameRe}")
+    fileList = os.listdir(logDir)
+    logFiles = []
+    for f in fileList:
+        match = logFileNameRe.match(f)
+        if not match:
+            continue
+        dateStr = match.group(1)
+        try:
+            fileTime = datetime.datetime.strptime(dateStr, dateFormat)
+        except ValueError:
+            continue
+        logFiles.append([f, fileTime])
+    logFiles = sorted(logFiles, key=lambda record: record[1].timestamp(), reverse=False)
+    for idx, record in enumerate(logFiles):
+        logger.info(f"No.{idx} {record[0]} time:{record[1]}")
+
+    removeFileList = selectLogToRemove(logFiles, keepSeconds, keepCount)
+
+    for fname in removeFileList:
+        fpath = logDir + os.sep + fname
+        try:
+            os.remove(fpath)
+        except Exception as e:
+            print(f"remove log file {fpath} fail:{e}", file=sys.stderr)
     return
 
 
@@ -257,7 +338,18 @@ def argProcess(argv: sys.argv[1:]) -> argparse.Namespace:
         "-e", "--enable", action="store_true", help="enable, default=False"
     )
     parser.add_argument(
-        "-v", action="store_true", dest="verbose", help="enable script nagging"
+        "--log-level",
+        dest="logLevel",
+        type=str.upper,
+        choices=list(getLoggingLevelMap()),
+        default=list(getLoggingLevelMap())[2],
+        help="logging level"
+    )
+    parser.add_argument(
+        "--log-keep-count", type=int, dest="logKeepCount", default=100, help="how many run log record to keep"
+    )
+    parser.add_argument(
+        "--log-keep-second", type=int, dest="logKeepSeconds", default=30 * 24 * 60 * 60, help="how many seconds run log record to keep"
     )
     args = parser.parse_args(argv)
 
@@ -266,11 +358,8 @@ def argProcess(argv: sys.argv[1:]) -> argparse.Namespace:
 
 def logArgs(args: argparse.Namespace) -> None:
     args_dict = vars(args)
-    logstr = ""
-    for key, value in args_dict.items():
-        logstr += "%s:%s" % (key, value)
-        logstr += "\n"
-    logger.info(logstr)
+    json_str = json.dumps(args_dict, indent=2)
+    logger.info(f"process start with args:\n{json_str}")
     return
 
 
@@ -286,6 +375,14 @@ def GlobalExceptionHandler(exc_type, exc_value, exc_tb) -> None:
     traceback_str = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
     logger.error(f"{traceback_str}")
     return
+
+
+def getLoggingLevelMap() -> dict:
+    map = {}
+    for level in sorted(logging._levelToName):
+        name = logging.getLevelName(level)
+        map[name.upper()] = level
+    return map
 
 
 if __name__ == "__main__" or ENABLE_LOGGER_4_MODULE:
