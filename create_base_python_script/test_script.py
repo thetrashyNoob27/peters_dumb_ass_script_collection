@@ -8,10 +8,7 @@ import datetime
 import sqlite3
 import time
 import threading
-import psutil
-import json
-import signal
-import multiprocessing
+import queue
 
 PROJECT_NAME = "${PROJECT_NAME}"
 VERSION_MAJOR = 0
@@ -22,13 +19,24 @@ ENABLE_LOGGER_4_MODULE = False
 logger = logging.getLogger(PROJECT_NAME)
 
 
+def loggingProformanceTest(writeCount: int = 1000):
+    start = time.monotonic()
+    logger.info(f"start log proformance test")
+    for i in range(0, writeCount):
+        logger.debug(f"{i}")
+    logger.info(f"finish log proformance test")
+    end = time.monotonic()
+
+    timeuseMS = (end - start) * 1000
+    logPerSec = writeCount / (end - start)
+    logger.info(f"{writeCount} log write timeuse :{timeuseMS:3f}ms ({logPerSec:2f}L/Sec)")
+    return
+
+
 def main(argConfigure) -> None:
     logger.info("hello,python.")
     time.sleep(1)
-    logger.info(f"start log proformance test")
-    for i in range(0, 1000):
-        logger.debug(f"{i}")
-    logger.info(f"finish log proformance test")
+    loggingProformanceTest(10000)
     return
 
 
@@ -36,31 +44,33 @@ class SQLiteHandler(logging.Handler):
     def __init__(self, db: str = None):
         logging.Handler.__init__(self)
         self.dbName = db
-        self._ProcessSeprate()
-        # parent thread run here
-
-    def _ProcessSeprate(self) -> None:
-        self.HostPID = os.getppid()
-        self.writePID = None
-        self.messageQueue = multiprocessing.Queue(1000)
-        self.writeProcess = multiprocessing.Process(
-            target=self.WriteProcessLogic, args=()
-        )
-        self.writeProcess.daemon = True
-        self.writeProcess.start()
-        return
+        self._ConnectSqlite()
+        self._startWriterThread()
 
     def __del__(self) -> None:
-        if not self._isWriteProcess():
-            pass
+        self.close()
         return
 
-    def _isWriteProcess(self) -> None:
-        thisPID = os.getpid()
-        isChild = self.writePID is not None
-        return isChild
+    def _startWriterThread(self) -> None:
+        self.pendingWriteLogRecordQueue = queue.Queue()
+        self.pendingWriteLogRecordLock = threading.Lock()
+        self.pendingWriteLogRecordCondition = threading.Condition(self.pendingWriteLogRecordLock)
+        self.writerThreadQuit = False
 
-    def _ConnectSqLite(self, db: str = None) -> None:
+        self.SinkWriteThread = threading.Thread(target=self.SinkWriteJob, daemon=True)
+        self.SinkWriteThread.start()
+        return
+
+    def _stopWriterThread(self) -> None:
+        self.writerThreadQuit = True
+        with self.pendingWriteLogRecordCondition:
+            if not self.SinkWriteThread.is_alive():
+                return
+            self.pendingWriteLogRecordCondition.notify_all()
+        self.SinkWriteThread.join()
+        return
+
+    def _ConnectSqlite(self, db: str = None) -> None:
         if db == None:
             db = "{}{}{}.sqlite3".format(
                 tempfile.gettempdir(), os.path.sep, PROJECT_NAME
@@ -73,11 +83,12 @@ class SQLiteHandler(logging.Handler):
             "%Y-%m-%d-%H-%M-%S"
         )
         tableCreateCMD = (
-            'CREATE TABLE IF NOT EXISTS "%s" (id INTEGER PRIMARY KEY, time TEXT, logSpace TEXT,module TEXT, level TEXT, threadName TEXT, thread TEXT,processID TEXT,fullpath TEXT,file TEXT,function TEXT,line TEXT,stackInfo Text, message TEXT)'
-            % (self.tableName)
+                'CREATE TABLE IF NOT EXISTS "%s" (id INTEGER PRIMARY KEY, time TEXT, logSpace TEXT,module TEXT, level TEXT, threadName TEXT, thread TEXT,processID TEXT,fullpath TEXT,file TEXT,function TEXT,line TEXT,stackInfo Text, message TEXT)'
+                % (self.tableName)
         )
         self.cur.execute(tableCreateCMD)
         self.conn.commit()
+
 
         self.instertCMD = self._INSERT_builder(
             [
@@ -98,6 +109,11 @@ class SQLiteHandler(logging.Handler):
         )
         return
 
+    def _disconnectSqlite(self) -> None:
+        self.conn.commit()
+        self.conn.close()
+        return
+
     def _INSERT_builder(self, infos: list) -> str:
         cmd = 'INSERT INTO "%s" ' % (self.tableName)
         columnStr = "("
@@ -115,10 +131,7 @@ class SQLiteHandler(logging.Handler):
         return cmd
 
     def emit(self, record: logging.LogRecord) -> None:
-        if self._isWriteProcess():
-            print(f"Sqlite sink writer thread not supposed to emit()", file=sys.stderr)
-            return
-        if self.messageQueue.full():
+        if self.pendingWriteLogRecordQueue.full():
             print(f"message queue fill. cant log to sqlite writer", file=sys.stderr)
             return
 
@@ -137,57 +150,48 @@ class SQLiteHandler(logging.Handler):
         msg["stack_info"] = record.stack_info
         msg["message"] = record.message
 
-        self.messageQueue.put(json.dumps(msg))
+        with self.pendingWriteLogRecordCondition:
+            self.pendingWriteLogRecordQueue.put(msg)
+            self.pendingWriteLogRecordCondition.notify_all()
         return
 
     def close(self) -> None:
-        if self._isWriteProcess():
-            self.conn.close()
-            self.cur = None
-            self.conn = None
-        else:
-            logging.Handler.close(self)
+        self._stopWriterThread()
+        self._disconnectSqlite()
+        return
 
-    def WriteProcessSignalHandler(self, sig, frame) -> None:
-        if sig == signal.SIGTERM:
-            self.messageQueue.put(None)
+    def writeLogRecord(self, msg) -> None:
+        self.cur.execute(
+            self.instertCMD,
+            (
+                msg["asctime"],
+                msg["name"],
+                msg["module"],
+                msg["levelname"],
+                msg["threadName"],
+                msg["thread"],
+                msg["process"],
+                msg["pathname"],
+                msg["filename"],
+                msg["funcName"],
+                msg["lineno"],
+                msg["stack_info"],
+                msg["message"],
+            ),
+        )
         return
 
     def SinkWriteJob(self) -> None:
         while True:
-            msg = self.messageQueue.get()
-            if msg is None:
-                break
-            msg = json.loads(msg)
-            self.cur.execute(
-                self.instertCMD,
-                (
-                    msg["asctime"],
-                    msg["name"],
-                    msg["module"],
-                    msg["levelname"],
-                    msg["threadName"],
-                    msg["thread"],
-                    msg["process"],
-                    msg["pathname"],
-                    msg["filename"],
-                    msg["funcName"],
-                    msg["lineno"],
-                    msg["stack_info"],
-                    msg["message"],
-                ),
-            )
-        self.conn.commit()
-        self.cur.execute("PRAGMA wal_checkpoint;")
-        return
+            with self.pendingWriteLogRecordCondition:
+                while self.pendingWriteLogRecordQueue.empty() and not self.writerThreadQuit:
+                    self.pendingWriteLogRecordCondition.wait()
 
-    def WriteProcessLogic(self) -> None:
-        signal.signal(signal.SIGTERM, self.WriteProcessSignalHandler)
-        self._ConnectSqLite(self.dbName)
-        self.SinkWriteThread = threading.Thread(target=self.SinkWriteJob, daemon=True)
-        self.SinkWriteThread.start()
-        self.SinkWriteThread.join()
-        self.close()
+                if self.writerThreadQuit and self.pendingWriteLogRecordQueue.empty():
+                    break
+                msg = self.pendingWriteLogRecordQueue.get()
+            self.writeLogRecord(msg)
+        self.conn.commit()
         return
 
 
