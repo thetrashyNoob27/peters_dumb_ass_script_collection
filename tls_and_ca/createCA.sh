@@ -94,10 +94,14 @@ emailAddress = 896010555@qq.com
 
 [ req_ext ]
 #subjectAltName = @alt_names
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth  # Adjust based on use case
 
-[ alt_names ]
-#DNS.1 = localhost
-#IP.1  = 127.0.0.1
+
+[alt_names]
+#DNS.1 = your-hostname.example.com
+# Add more SANs as needed
 EOF
 fi
 
@@ -126,8 +130,6 @@ else
         -CA "${CA_PREFIX}.crt" -CAkey "${CA_PREFIX}.key" -CAcreateserial \
         -out "${HOSTNAME}-signby-${CA_NAME}.crt" -days 3650 -sha256 \
         -extfile "${OTHER_SIGN_CNF}" -extensions req_ext
-
-         
     else
         echo "cert exist, not do anything."
     fi
