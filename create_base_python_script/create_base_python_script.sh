@@ -307,7 +307,7 @@ def selectLogToRemove(logFiles, keepSeconds, keepCount):
         if recordTime >= nowTime:
             continue
         difftime = nowTime - recordTime
-        diffSec = difftime.seconds
+        diffSec = difftime.total_seconds()
         overdue = diffSec > keepSeconds
         if not overdue:
             continue
@@ -426,7 +426,7 @@ else:
 
 if __name__ == "__main__":
     main(argConfigure)
-#create by base python script creator 0.7.0
+#create by base python script creator 0.9.0
 EOF
 
 echo "# create on $(date "+ [%z]%F %H:%M:%S")">>"${PROJECT_NAME}.py";

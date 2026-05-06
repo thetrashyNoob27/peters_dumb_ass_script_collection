@@ -293,7 +293,7 @@ def selectLogToRemove(logFiles, keepSeconds, keepCount):
         if recordTime >= nowTime:
             continue
         difftime = nowTime - recordTime
-        diffSec = difftime.seconds
+        diffSec = difftime.total_seconds()
         overdue = diffSec > keepSeconds
         if not overdue:
             continue
